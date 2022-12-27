@@ -13,6 +13,8 @@ $user = new User($db);
 
 // Get raw POSTed data
 $data = $_POST;
-$user->Xemail = $data['email'];
-$data = $user->forgetPwd();
+$user->verification_code = $data['verification_code'];
+$user->user_id = $data['user_id'];
+
+$data = $user->signup_verify();
 echo $data;

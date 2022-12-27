@@ -13,13 +13,15 @@ $user = new User($db);
 
 // Get raw POSTed data
 $data = $_POST;
-$user->Xname = $data['Xname'];
-$user->Xemail = $data['Xemail'];
-$user->Xpassword = $data['Xpassword'];
-$user->Xcountry_code = $data['Xcountry_code'];
-$user->Xcountry = $data['Xcountry'];
-$user->Xmobile = $data['Xmobile'];
-$user->Xgender = $data['Xgender'];
-$user->Xdob = $data['Xdob'];
-$data = $user->create();
+$user->Xname = $data['name'];
+$user->Xemail = $data['email'];
+$user->Xpassword = $data['password'];
+$user->confirm_password = $data['confirm_password'];
+$user->step = $data['step'];
+$user->Xcountry_code = $data['country_code'];
+$user->Xcountry = $data['country'];
+$user->Xmobile = $data['mobile'];
+$user->Xgender = $data['gender'];
+$user->Xdob = $data['dob'];
+$data = $user->signup();
 echo $data;

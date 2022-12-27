@@ -13,6 +13,14 @@ $user = new User($db);
 
 // Get raw POSTed data
 $data = $_POST;
-$user->Xverification_code = $data['Xverification_code'];
-$data = $user->signupEmailVerification();
+$user->Xname = $data['name'];
+$user->user_id = $data['user_id'];
+$user->Xcountry_code = $data['country_code'];
+$user->Xcountry = $data['country'];
+$user->Xmobile = $data['mobile'];
+$user->Xgender = $data['gender'];
+$user->Xdob = $data['dob'];
+$user->Xreferral_code = $data['referral_code'];
+
+$data = $user->signup_details();
 echo $data;

@@ -9,7 +9,10 @@ class User
     public $id;
     public $Xname;
     public $Xemail;
+    public $confirm_password;
+    public $step;
     public $Xverification_code;
+    public $verification_code;
     public $Xpassword;
     public $Xcountry_code;
     public $Xmobile;
@@ -34,9 +37,13 @@ class User
     }
 
     // Create a Users
-    public function create()
+    public function signup()
     {
         try {
+
+         if($this->Xpassword !== $this->confirm_password){
+            return json_encode(['results'=>false,'message'=>'Password do not match.','data'=>[]]);
+        }
 
         $query = "SELECT *
         FROM {$this->table} 
@@ -48,55 +55,133 @@ class User
         $stmt->execute();
         $number_of_rows = $stmt->fetchColumn(); 
         if($number_of_rows > 0){
-            return json_encode(['status'=>0,'msg'=>'Email is exists,try with another email.']);
+            return json_encode(['results'=>false,'message'=>'Email is exists,try with another email.','data'=>[]]);
         }
 
         $query = "INSERT INTO {$this->table} 
         SET 
-         Xname = :Xname,
          Xemail= :Xemail, 
-         Xpassword= :Xpassword, 
-         Xmobile= :Xmobile,
-         Xgender= :Xgender,
-         Xdob= :Xdob,
-         Xverification_code= :Xverification_code";
-
+         Xpassword= :Xpassword"; 
 
         // Prepare Statement
         $stmt = $this->conn->prepare($query);
 
         // Sanitize data
-        $this->Xname = htmlspecialchars(strip_tags(trim($this->Xname)));
         $this->Xemail = htmlspecialchars(strip_tags(trim($this->Xemail)));
         $this->Xpassword = htmlspecialchars(strip_tags(trim($this->Xpassword)));
-        $this->Xmobile = htmlspecialchars(strip_tags(trim($this->Xmobile)));
-        $this->Xgender = htmlspecialchars(strip_tags(trim($this->Xgender)));
-        $this->Xdob = htmlspecialchars(strip_tags(trim($this->Xdob)));
+
 
         // Bind Data
-        $stmt->bindParam(":Xname", $this->Xname);
         $stmt->bindParam(":Xemail", $this->Xemail);
         $stmt->bindParam(":Xpassword", $this->Xpassword);
-        $stmt->bindParam(":Xmobile", $this->Xmobile);
-        $stmt->bindParam(":Xgender", $this->Xgender);
-        $stmt->bindParam(":Xdob", $this->Xdob);
-        $stmt->bindParam(":Xverification_code", random_int(100000, 999999));
-
         
         if ($stmt->execute()) {
 
-           $this->send_verification_code();
-           return json_encode(['status'=>1,'msg'=>'You have successfully created your account.']);
+           $userId = $this->conn->lastInsertId();
+           $this->send_verification_code($userId);
+
+           return json_encode(['results'=>true,'message'=>'A verfication code sent to on your mail,Please verify','data'=>['user_id'=>$userId]]);
         }
 
     } catch (PDOException $e) {
-        return json_encode(['status'=>0,'error'=>$e->getMessage()]);
+        return json_encode(['true'=>true,'message'=>$e->getMessage()]);
+    }
+        
+    }
+    
+
+    public function signup_verify()
+    {
+        try {
+
+         if(empty($this->verification_code)){
+            return json_encode(['results'=>false,'message'=>'Something went wrong','data'=>[]]);
+        }
+
+        $query = "SELECT *
+        FROM x_verification_code 
+        WHERE code = :code";
+
+        // Prepare Statement
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(code, $this->verification_code);
+        $stmt->execute();
+        $number_of_rows = $stmt->fetchColumn(); 
+        if($number_of_rows == 0){
+            return json_encode(['results'=>false,'message'=>'Invalid verification code','data'=>[]]);
+        }
+
+        return json_encode(['results'=>true,'message'=>'Your email is verified.','data'=>['user_id'=>$this->user_id]]);
+
+
+    } catch (PDOException $e) {
+        return json_encode(['results'=>true,'message'=>$e->getMessage()]);
     }
         
     }
 
-    public function send_verification_code(){
+
+    public function signup_details()
+    {
+        try {
+    
+        $query = "UPDATE {$this->table} 
+        SET 
+         Xname = :Xname,
+         Xcountry_code= :Xcountry_code,
+         Xmobile= :Xmobile,
+         Xcountry= :Xcountry,
+         Xgender= :Xgender,
+         Xdob= :Xdob,
+         Xreferral_code= :Xreferral_code
+         WHERE id = :id";
+
+        // Prepare Statement
+        $stmt = $this->conn->prepare($query);
+
+
+        // Bind Data
+        $stmt->bindParam(":id", $this->user_id);
+        $stmt->bindParam(":Xname", $this->Xname);
+        $stmt->bindParam(":Xcountry_code", $this->Xcountry_code);
+        $stmt->bindParam(":Xmobile", $this->Xmobile);
+        $stmt->bindParam(":Xcountry", $this->Xcountry);
+        $stmt->bindParam(":Xgender", $this->Xgender);
+        $stmt->bindParam(":Xdob", $this->Xdob);
+        $stmt->bindParam(":Xreferral_code", $this->Xreferral_code);
+
+        // Prepare Statement
+        if(!$stmt->execute()){
+            return json_encode(['results'=>false,'message'=>'Something went wrong','data'=>[]]);
+        }
+
+        return json_encode(['results'=>true,'message'=>'Your account created successfully','data'=>['user_id'=>$this->user_id]]);
+
+
+    } catch (PDOException $e) {
+        return json_encode(['results'=>false,'message'=>$e->getMessage()]);
+    }
+        
+    }
+
+    public function send_verification_code($userId){
         // For verification code
+
+        $query = "INSERT INTO x_verification_code 
+        SET 
+         user_id= :user_id, 
+         code= :code"; 
+
+        // Prepare Statement
+        $stmt = $this->conn->prepare($query);
+
+        // Bind Data
+        $stmt->bindParam(":user_id", $userId);
+        $stmt->bindParam(":code", random_int(100000, 999999));
+        
+        if ($stmt->execute()) {
+           //send verification code on mail
+        }
     }
 
 
@@ -113,11 +198,11 @@ class User
         $stmt->bindParam(id, $this->id);
         $stmt->execute();
         $data = $stmt->fetch(PDO::FETCH_ASSOC); 
-        return json_encode(['status'=>1,'msg'=>'User details','users'=>$data]);
+        return json_encode(['results'=>true,'message'=>'User details','data'=>$data]);
 
 
     } catch (PDOException $e) {
-        return json_encode(['status'=>0,'error'=>$e->getMessage()]);
+        return json_encode(['results'=>false,'message'=>$e->getMessage()]);
     }
         
     }
@@ -138,60 +223,18 @@ class User
         $stmt->execute();
         $number_of_rows = $stmt->fetchColumn(); 
         if($number_of_rows == 0){
-            return json_encode(['status'=>0,'msg'=>'Something went wrong.']);
+            return json_encode(['results'=>false,'message'=>'Something went wrong.','data'=>[]]);
         }
 
-        return json_encode(['status'=>1,'msg'=>'You have successfully logged in.']);
+        return json_encode(['results'=>true,'message'=>'You have successfully logged in.','data'=>[]]);
 
 
 
     } catch (PDOException $e) {
-        return json_encode(['status'=>0,'error'=>$e->getMessage()]);
+        return json_encode(['results'=>false,'message'=>$e->getMessage()]);
     }
         
     }
-
-    public function signupEmailVerification()
-    {
-        try {
-
-        $query = "SELECT *
-        FROM {$this->table} 
-        WHERE Xverification_code = :Xverification_code";
-
-        // Prepare Statement
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(Xverification_code, $this->Xverification_code);
-        $stmt->execute();
-        $number_of_rows = $stmt->fetchColumn(); 
-        if($number_of_rows > 0){
-            
-            $query = "UPDATE {$this->table} 
-            SET 
-             Xemail_verified_at = :Xemail_verified_at,
-             WHERE Xverification_code = :Xverification_code";
-    
-            // Prepare Statement
-            $stmt1 = $this->conn->prepare($query);
-            $this->Xemail_verified_at = 1;
-
-            // Bind Data
-            $stmt1->bindParam(":Xemail_verified_at", $this->Xemail_verified_at);
-            $stmt1->bindParam(":Xverification_code", $this->Xverification_code);
-            
-            $stmt1->execute();
-            return json_encode(['status'=>1,'msg'=>'Your email successfully verified.']);
-
-
-        }
-
-
-    } catch (PDOException $e) {
-        return json_encode(['status'=>0,'error'=>$e->getMessage()]);
-    }
-        
-    }
-
 
     public function forgetPwd()
     {
@@ -203,27 +246,24 @@ class User
 
         // Prepare Statement
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(Xverification_code, $this->Xverification_code);
+        $stmt->bindParam("Xemail", $this->Xemail);
         $stmt->execute();
         $number_of_rows = $stmt->fetchColumn(); 
-        if($number_of_rows > 0){
-            
-            $this->forgetPwdLink();
-            return json_encode(['status'=>1,'msg'=>'Your password sent to you mail.']);
-
-
+        if($number_of_rows == 0){
+            return json_encode(['results'=>false,'message'=>'Something went wrong']);
         }
 
+        return json_encode(['results'=>true,'message'=>'Your password code sent to you mail.']);
 
     } catch (PDOException $e) {
-        return json_encode(['status'=>0,'error'=>$e->getMessage()]);
+        return json_encode(['results'=>true,'message'=>$e->getMessage()]);
     }
         
     }
 
 
-    public function forgetPwdLink(){
-        // link send to mail
+    public function forgetVerify(){
+        // forgetVerify
     }
 
 }
